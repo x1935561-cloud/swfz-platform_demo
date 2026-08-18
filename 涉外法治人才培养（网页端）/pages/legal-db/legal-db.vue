@@ -201,25 +201,6 @@
         </main>
       </view>
     </view>
-    <view v-if="detailVisible" class="detail-mask" @tap="closeDetail">
-      <view class="detail-modal" @tap.stop>
-        <view class="detail-head">
-          <view class="detail-head-meta">
-            <text class="detail-cat">{{ detailDoc.category }}</text>
-            <text class="detail-date">{{ detailDoc.date }}</text>
-          </view>
-          <view class="detail-close" @tap="closeDetail">×</view>
-        </view>
-        <text class="detail-title">{{ detailDoc.title }}</text>
-        <text class="detail-source">来源：{{ detailDoc.source }}</text>
-        <view class="detail-meta">
-          <text class="detail-tag" v-for="tag in (detailDoc.tags || [])" :key="tag">{{ tag }}</text>
-        </view>
-        <scroll-view class="detail-content" scroll-y="true">
-          <text>{{ detailDoc.content || detailDoc.summary || '暂无正文' }}</text>
-        </scroll-view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -248,16 +229,7 @@ const userRole = ref(getLevelText())
 /* ============================================================
    Data
    ============================================================ */
-const categories = [
-  { key: 'all', name: '全部' },
-  { key: 'treaty', name: '国际公法' },
-  { key: 'private', name: '国际私法' },
-  { key: 'civil', name: '涉外民商法' },
-  { key: 'trade', name: '国际贸易法' },
-  { key: 'invest', name: '国际投资法' },
-  { key: 'maritime', name: '海商法' },
-  { key: 'arbitration', name: '国际仲裁' }
-]
+const categories = ref([{ key: 'all', name: '全部' }])
 
 const legalFields = ['国际贸易法', '国际私法', '国际仲裁', '反垄断法', '数据保护法', '知识产权法', '投资法', '税法']
 const regions = ['中国', '欧盟', '美国', '英国', '新加坡', '国际']
@@ -265,8 +237,31 @@ const docTypes = ['法律', '行政法规', '部门规章', '司法解释', '国
 
 const results = ref([])
 const loading = ref(false)
-const detailVisible = ref(false)
-const detailDoc = ref(null)
+
+function mergeCategoryOptions(extra = []) {
+  const names = [...new Set([
+    ...extra,
+    ...results.value.map(r => r.category || '综合')
+  ].map(x => String(x || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  categories.value = [{ key: 'all', name: '全部' }, ...names.map(name => ({ key: name, name }))]
+  if (activeCategory.value !== 'all' && !names.includes(activeCategory.value)) {
+    activeCategory.value = 'all'
+  }
+}
+
+async function loadCategories() {
+  try {
+    const knowledgeObj = uniCloud.importObject('knowledge', { customUI: true })
+    const r = (await knowledgeObj.getCategories({ status: '已上线' })) || {}
+    if (r.errCode === 0 && Array.isArray(r.list)) {
+      mergeCategoryOptions(r.list)
+    } else {
+      mergeCategoryOptions([])
+    }
+  } catch (e) {
+    mergeCategoryOptions([])
+  }
+}
 
 async function loadDocs() {
   loading.value = true
@@ -289,6 +284,7 @@ async function loadDocs() {
         date: doc.date || ''
       }))
       currentPage.value = 1
+      await loadCategories()
     } else {
       uni.showToast({ title: r.errMsg || '知识库加载失败', icon: 'none' })
     }
@@ -325,19 +321,7 @@ const filteredResults = computed(() => {
 
   // Category filter (tag-pill)
   if (activeCategory.value !== 'all') {
-    const catMap = {
-      treaty: '国际公法',
-      private: '国际私法',
-      civil: '涉外民商法',
-      trade: '国际贸易法',
-      invest: '国际投资法',
-      maritime: '海商法',
-      arbitration: '国际仲裁'
-    }
-    const targetCat = catMap[activeCategory.value]
-    if (targetCat) {
-      list = list.filter(item => (item.category || '') === targetCat)
-    }
+    list = list.filter(item => (item.category || '综合') === activeCategory.value)
   }
 
   // Advanced filters
@@ -446,24 +430,8 @@ function goPage(page) {
   currentPage.value = page
 }
 
-async function viewDetail(item) {
-  try {
-    const knowledgeObj = uniCloud.importObject('knowledge', { customUI: true })
-    const r = (await knowledgeObj.get({ id: item.id })) || {}
-    if (r.errCode === 0) {
-      detailDoc.value = r.doc
-      detailVisible.value = true
-    } else {
-      uni.showToast({ title: r.errMsg || '详情加载失败', icon: 'none' })
-    }
-  } catch (e) {
-    uni.showToast({ title: (e && e.errMsg) || '详情加载失败', icon: 'none' })
-  }
-}
-
-function closeDetail() {
-  detailVisible.value = false
-  detailDoc.value = null
+function viewDetail(item) {
+  uni.navigateTo({ url: '/pages/legal-db/doc-detail?id=' + item.id })
 }
 
 function categoryName(item) {
@@ -881,110 +849,6 @@ onLoad(() => {
   background: var(--rule-card);
   border: 1px solid var(--rule-border);
   border-radius: 12px;
-}
-
-/* ---- Detail Modal ---- */
-.detail-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.detail-modal {
-  width: min(720px, 100%);
-  max-height: 82vh;
-  background: var(--rule-card);
-  border: 1px solid var(--rule-border);
-  border-radius: 12px;
-  box-shadow: var(--rule-shadow-3);
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  gap: 14px;
-}
-.detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.detail-head-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.detail-cat {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  font-size: 13px;
-  font-weight: 500;
-  background: var(--rule-primary-tint-3);
-  color: var(--rule-primary);
-}
-.detail-date {
-  font-size: 13px;
-  color: var(--rule-muted-foreground);
-}
-.detail-close {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--rule-muted-foreground);
-  cursor: pointer;
-  background: var(--rule-muted);
-}
-.detail-close:hover {
-  color: var(--rule-foreground);
-  background: var(--rule-border);
-}
-.detail-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--rule-foreground);
-  line-height: 1.4;
-}
-.detail-source {
-  font-size: 13px;
-  color: var(--rule-muted-foreground);
-}
-.detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.detail-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 12px;
-  background: var(--rule-muted);
-  color: var(--rule-ink-2);
-}
-.detail-content {
-  flex: 1;
-  min-height: 180px;
-  max-height: 45vh;
-  border: 1px solid var(--rule-border);
-  border-radius: 8px;
-  background: var(--rule-surface-2);
-  padding: 16px;
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--rule-foreground);
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
 }
 
 /* ---- Document Grid ---- */

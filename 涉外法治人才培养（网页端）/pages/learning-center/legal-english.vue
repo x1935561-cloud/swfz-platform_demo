@@ -89,7 +89,7 @@
                 </view>
               </view>
               <view class="overview-stats">
-                <view class="overview-stat" v-for="(stat, i) in stats" :key="i">
+                <view class="overview-stat" v-for="(stat, i) in visibleStats" :key="i">
                   <view class="overview-stat-icon" :class="stat.iconClass"></view>
                   <view class="overview-stat-info">
                     <text class="overview-stat-value">{{ stat.val }}</text>
@@ -102,12 +102,12 @@
             <!-- ===== Learning Modules ===== -->
             <view class="doc-section-header">
               <text class="doc-section-title">学习模块</text>
-              <text class="doc-section-meta">共 {{ modules.length }} 个模块</text>
+              <text class="doc-section-meta">共 {{ visibleModules.length }} 个模块</text>
             </view>
             <view class="mod-grid">
               <view
                 class="mod-card"
-                v-for="(mod, idx) in modules"
+                v-for="(mod, idx) in visibleModules"
                 :key="idx"
                 @tap="onModuleTap(mod)"
               >
@@ -148,7 +148,7 @@
                 :key="word.id"
                 @tap="onWordTap(word)"
               >
-                <text class="vocab-phonetic">{{ word.level || word.phonetic }}</text>
+                <text v-if="word.level || word.phonetic" class="vocab-phonetic">{{ word.level || word.phonetic }}</text>
                 <text class="vocab-en">{{ word.en }}</text>
                 <text class="vocab-cn">{{ word.cn }}</text>
                 <view class="vocab-actions">
@@ -199,6 +199,9 @@ const overallPercent = ref(0)
 const overallLevel = ref('暂无')
 const stats = ref([])
 const modules = ref([])
+// 过滤掉 hidden 的卡片（如暂不展示的"文本阅读"），保留数据方便后续启用
+const visibleStats = computed(() => stats.value.filter(s => !s.hidden))
+const visibleModules = computed(() => modules.value.filter(m => !m.hidden))
 const words = ref([])
 const vocabPool = ref([])
 const progressMap = ref({})
@@ -370,7 +373,8 @@ function buildTodayWords() {
   if (savedPlan.length) {
     const poolMap = new Map(pool.map(w => [w.id, w]))
     const planned = savedPlan.map(id => poolMap.get(id)).filter(Boolean)
-    if (planned.length) {
+    // 计划中的词可能已被删除导致数量不足，低于 10 个（约定每日 10-15 个）时重新生成当天计划
+    if (planned.length >= 10) {
       words.value = planned
       syncVocabTab()
       return
@@ -456,22 +460,59 @@ function markWord(word, known) {
   syncVocabTab()
 }
 
+async function fetchEnglishVocab(resourcesObj, lang, pageSize) {
+  const all = []
+  let page = 1
+  let total = 0
+  let fetched = 0
+  do {
+    const r = (await resourcesObj.listPublic({ type: 'vocabulary', lang, page, size: pageSize })) || {}
+    if (r.errCode !== 0) break
+    const batch = r.list || []
+    all.push(...batch)
+    fetched += batch.length
+    total = Number(r.total) || fetched
+    page++
+  } while (fetched < total)
+  return all.filter(d => d.type === 'vocabulary' && normalizeLang(d.lang) === '英语')
+}
+
 async function loadEnglishResources() {
   try {
     const resourcesObj = uniCloud.importObject('resources', { customUI: true })
-    const r = (await resourcesObj.listPublic({ type: 'all' })) || {}
-    if (r.errCode !== 0) {
-      uni.showToast({ title: r.errMsg || '法律英语资源加载失败', icon: 'none' })
-      return
+    // 词库变动不频繁：本地缓存 10 分钟，云函数端按语言过滤减少传输，加快加载
+    const cacheKey = 'le_vocab_english_cache'
+    const now = Date.now()
+    let vocabularyList = null
+    try {
+      const cached = uni.getStorageSync(cacheKey)
+      if (cached && cached.expireAt && cached.expireAt > now && Array.isArray(cached.data)) {
+        vocabularyList = cached.data
+      }
+    } catch (e) {}
+    if (!vocabularyList) {
+      // 云数据库单次 get 有 100 条上限，词汇分页拉全，避免词量大时被截断
+      const pageSize = 1000
+      vocabularyList = await fetchEnglishVocab(resourcesObj, '英语', pageSize)
+      if (!vocabularyList.length) {
+        // 兼容旧数据（无 lang 字段）：回退拉全量再过滤
+        vocabularyList = await fetchEnglishVocab(resourcesObj, '', pageSize)
+      }
+      try {
+        uni.setStorageSync(cacheKey, { expireAt: now + 10 * 60 * 1000, data: vocabularyList })
+      } catch (e) {}
     }
-    const list = (r.list || []).filter(d => ['vocabulary', 'reading', 'listening'].includes(d.type))
-    const vocabularyList = list.filter(d => d.type === 'vocabulary')
-    vocabPool.value = vocabularyList.filter(d => normalizeLang(d.lang) === '英语').map(mapWord)
+    const [readRes, listenRes] = await Promise.all([
+      resourcesObj.listPublic({ type: 'reading', page: 1, size: 1000 }),
+      resourcesObj.listPublic({ type: 'listening', page: 1, size: 1000 })
+    ])
+    vocabPool.value = vocabularyList.map(mapWord)
     buildTodayWords()
+    // 文本阅读卡片保留在数据中（hidden: true 默认不显示，后续开发改 false 即可启用）
     stats.value = [
       { iconClass: 'stat-bookmark-icon', val: String(vocabPool.value.length), label: '英语词汇' },
-      { iconClass: 'stat-file-icon', val: String(list.filter(d => d.type === 'reading').length), label: '文本阅读' },
-      { iconClass: 'stat-mic-icon', val: String(list.filter(d => d.type === 'listening').length), label: '听力' }
+      { iconClass: 'stat-file-icon', val: String((readRes.list || []).length), label: '文本阅读', hidden: true },
+      { iconClass: 'stat-mic-icon', val: String((listenRes.list || []).length), label: '听力' }
     ]
     modules.value = [
       {
@@ -486,7 +527,8 @@ async function loadEnglishResources() {
         level: 'L2',
         percent: 0,
         iconClass: 'mod-file-icon',
-        route: '/pages/learning-center/reading-list'
+        route: '/pages/learning-center/reading-list',
+        hidden: true
       },
       {
         name: '听力训练',

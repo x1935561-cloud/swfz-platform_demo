@@ -71,6 +71,13 @@
 			}
 		},
 		{
+			"path": "pages/legal-db/doc-detail",
+			"style": {
+				"navigationBarTitleText": "法规详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/learning-center/learning-center",
 			"style": {
 				"navigationBarTitleText": "学习中心",
@@ -120,6 +127,13 @@
 			}
 		},
 		{
+			"path": "pages/learning-center/reading-detail",
+			"style": {
+				"navigationBarTitleText": "文本阅读",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/admin/dashboard",
 			"style": {
 				"navigationBarTitleText": "数据总览",
@@ -136,7 +150,7 @@
 		{
 			"path": "pages/admin/knowledge-management",
 			"style": {
-				"navigationBarTitleText": "知识库管理",
+				"navigationBarTitleText": "法律库管理",
 				"navigationStyle": "custom"
 			}
 		},

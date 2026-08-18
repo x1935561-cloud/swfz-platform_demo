@@ -87,7 +87,7 @@ module.exports = {
    * 公开资源列表（学习中心使用，只返回已上线）
    * @param {string} type video | vocabulary | reading | listening | all
    */
-  async listPublic({ type = 'all', category = '', keyword = '', lang = '' } = {}) {
+  async listPublic({ type = 'all', category = '', keyword = '', lang = '', withContent = false } = {}) {
     const table = db.collection('resource')
     const where = buildWhere({ type, category, keyword, lang, status: '已上线' })
     const query = table
@@ -95,7 +95,19 @@ module.exports = {
       .orderBy('sortOrder', 'asc')
       .orderBy('createDate', 'desc')
     const list = await fetchAllByPage(query, table.where(where))
-    return { errCode: 0, errMsg: '', list }
+    const out = (list || []).map(doc => {
+      const item = { ...doc }
+      // 列表接口默认不返回大字段（正文/题目），显著降低传输量；阅读类型附带字数统计供卡片展示
+      if (!withContent) {
+        if (item.type === 'reading' && typeof item.content === 'string') {
+          item.wordCount = item.content.replace(/\s/g, '').length
+        }
+        delete item.content
+        delete item.questions
+      }
+      return item
+    })
+    return { errCode: 0, errMsg: '', list: out }
   },
 
   /**
@@ -269,16 +281,98 @@ module.exports = {
   },
 
   /**
-   * 删除资源（需管理员 token）
+   * 批量导入阅读文本（需管理员 token）
+   * @param {Array} items [{ title, cat, meta, description, content, date }]
+   *   按 title 去重（忽略已存在的阅读），单次最多 100 篇
    */
-  async remove({ adminToken, id } = {}) {
+  async batchCreateReading({ adminToken, items = [] } = {}) {
     const check = await checkAdmin(adminToken)
     if (check.errCode !== 0) return check
-    if (!id) {
+    if (!Array.isArray(items) || !items.length) {
+      return { errCode: 'PARAM_IS_NULL', errMsg: '导入内容不能为空' }
+    }
+    if (items.length > 100) {
+      return { errCode: 'PARAM_ERROR', errMsg: '单次最多导入 100 篇阅读' }
+    }
+
+    const docs = []
+    items.forEach((raw, index) => {
+      const title = String((raw && raw.title) || '').trim()
+      if (!title) return
+      const content = String((raw && raw.content) || '').trim()
+      if (!content) return
+      docs.push({
+        type: 'reading',
+        title,
+        lang: '',
+        cat: String((raw && raw.cat) || '').trim() || '待分类',
+        tagClass: 'qb-type-case',
+        meta: String((raw && raw.meta) || '').trim(),
+        diffClass: '',
+        level: '',
+        cover: '',
+        fileUrl: '',
+        audioUrl: '',
+        content,
+        description: String((raw && raw.description) || '').trim(),
+        questions: [],
+        tags: splitTags(raw && raw.tags),
+        sortOrder: 9999,
+        date: String((raw && raw.date) || '').trim(),
+        status: '已上线',
+        statusClass: 'qb-diff-mid',
+        createDate: Date.now() + index
+      })
+    })
+
+    if (!docs.length) {
+      return { errCode: 'PARAM_ERROR', errMsg: '没有可导入的有效阅读' }
+    }
+
+    // 云端去重：按 title（忽略大小写）跳过已存在的阅读
+    const existingWhere = {
+      type: 'reading',
+      title: db.command.in(docs.map(d => d.title))
+    }
+    const existingQuery = db.collection('resource')
+      .where(existingWhere)
+      .field({ title: true })
+    const existingList = await fetchAllByPage(existingQuery, db.collection('resource').where(existingWhere))
+    const existingSet = new Set(existingList.map(x => String(x.title).toLowerCase()))
+    const fresh = docs.filter(d => !existingSet.has(d.title.toLowerCase()))
+    const skipped = docs.length - fresh.length
+
+    if (!fresh.length) {
+      return { errCode: 0, errMsg: '', added: 0, skipped }
+    }
+
+    const MAX_BATCH = 50
+    let added = 0
+    for (let i = 0; i < fresh.length; i += MAX_BATCH) {
+      const batch = fresh.slice(i, i + MAX_BATCH)
+      await db.collection('resource').add(batch)
+      added += batch.length
+    }
+    return { errCode: 0, errMsg: '', added, skipped }
+  },
+
+  /**
+   * 删除资源（需管理员 token）
+   */
+  async remove({ adminToken, id, ids } = {}) {
+    const check = await checkAdmin(adminToken)
+    if (check.errCode !== 0) return check
+    let idList = []
+    if (Array.isArray(ids) && ids.length) {
+      idList = ids
+    } else if (id) {
+      idList = [id]
+    }
+    if (!idList.length) {
       return { errCode: 'PARAM_IS_NULL', errMsg: 'id 不能为空' }
     }
-    await db.collection('resource').doc(id).remove()
-    return { errCode: 0, errMsg: '' }
+    const res = await db.collection('resource').where({ _id: db.command.in(idList) }).remove()
+    return { errCode: 0, errMsg: '', removed: res && res.deleted }
   }
 }
 

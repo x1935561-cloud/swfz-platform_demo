@@ -17,17 +17,17 @@
           <view class="navi-icon navi-icon-dashboard"></view>
           <text>数据总览</text>
         </view>
+        <view class="app-nav-item" @tap="navigateTo('/pages/admin/user-management')">
+          <view class="navi-icon navi-icon-users"></view>
+          <text>用户管理</text>
+        </view>
         <view class="app-nav-item" @tap="navigateTo('/pages/admin/question-bank')">
           <view class="navi-icon navi-icon-file-question"></view>
           <text>题库管理</text>
         </view>
         <view class="app-nav-item" @tap="navigateTo('/pages/admin/knowledge-management')">
           <view class="navi-icon navi-icon-book"></view>
-          <text>知识库管理</text>
-        </view>
-        <view class="app-nav-item" @tap="navigateTo('/pages/admin/user-management')">
-          <view class="navi-icon navi-icon-users"></view>
-          <text>用户管理</text>
+          <text>法律库管理</text>
         </view>
         <view class="app-nav-item is-active" @tap="navigateTo('/pages/admin/resource-management')">
           <view class="navi-icon navi-icon-folder"></view>
@@ -356,6 +356,32 @@
             </view>
             <text v-if="batchResult" class="rm-batch-result" :class="{ 'is-error': batchResult.error }">{{ batchResult.message }}</text>
           </view>
+
+          <view v-if="uploadType === 'reading'" class="rm-upload-card rm-batch-card">
+            <view class="rm-batch-head">
+              <view class="rm-batch-title-wrap">
+                <text class="rm-batch-title">批量导入阅读</text>
+                <text class="rm-batch-subtitle">粘贴文本或选择 txt 文件：每篇以 #title= 开头，支持 #cat= #meta= #description= #date= 字段，其余行作为正文；重复篇目自动跳过，导入后直接上线</text>
+              </view>
+              <view class="rm-batch-actions">
+                <view class="rm-file-btn rm-file-btn-sm" @tap="chooseBatchFile">选择 txt 文件</view>
+              </view>
+            </view>
+            <textarea
+              class="rm-textarea rm-batch-textarea"
+              v-model="batchText"
+              placeholder="每篇以 #title= 开头，例如：&#10;#title=司法和国家权力的多种面孔（序言）&#10;#cat=比较法&#10;#meta=米尔伊安·R·达玛什卡 著&#10;#description=全书导言&#10;正文内容..."
+            ></textarea>
+            <view class="rm-batch-foot">
+              <text v-if="readingParseCount > 0" class="rm-batch-count">已识别 {{ readingParseCount }} 篇阅读</text>
+              <text v-else class="rm-batch-count rm-batch-count-muted">尚未识别到阅读篇目</text>
+              <view class="qb-create-btn qb-create-btn-success" :class="{ 'is-disabled': batchImporting }" @tap="handleBatchReadingImport">
+                <view class="navi-icon navi-icon-check-circle"></view>
+                <text>{{ batchImporting ? '导入中...' : '一键导入' }}</text>
+              </view>
+            </view>
+            <text v-if="batchResult" class="rm-batch-result" :class="{ 'is-error': batchResult.error }">{{ batchResult.message }}</text>
+          </view>
         </section>
 
         <!-- ===== Section 3: 学习资源管理 ===== -->
@@ -385,6 +411,10 @@
                   <view class="qb-pill" :class="{ 'is-active': resourceFilter === 'listening' }" @tap="resourceFilter = 'listening'">听力</view>
                 </view>
               </view>
+              <view v-if="selectedIds.length" class="qb-batch-del" @tap="batchDelete">
+                <view class="navi-icon navi-icon-trash-2"></view>
+                <text>批量删除（{{ selectedIds.length }}）</text>
+              </view>
             </view>
           </view>
           <view class="qb-table-card">
@@ -392,6 +422,9 @@
               <table class="qb-table">
                 <thead>
                   <tr>
+                    <th scope="col" class="qb-check-col">
+                      <view class="qb-check" :class="{ 'is-checked': isAllSelected }" @tap="toggleSelectAll()"></view>
+                    </th>
                     <th scope="col">编号</th>
                     <th scope="col">类型</th>
                     <th v-if="showLanguageColumn" scope="col">语言</th>
@@ -405,6 +438,9 @@
                 </thead>
                 <tbody>
                   <tr v-for="item in pagedResources" :key="item.id">
+                    <td class="qb-check-col">
+                      <view class="qb-check" :class="{ 'is-checked': selectedIds.includes(item.id) }" @tap="toggleSelect(item.id)"></view>
+                    </td>
                     <td><text class="qb-qid">{{ item.id }}</text></td>
                     <td><text class="qb-type-tag" :class="item.typeClass">{{ resourceTypeLabel(item.type) }}</text></td>
                     <td v-if="showLanguageColumn"><text class="qb-type-tag qb-cat-blue">{{ item.lang || '英语' }}</text></td>
@@ -696,6 +732,64 @@ function parseBatchVocabText(text) {
   return items
 }
 
+/* ===== 批量导入阅读 ===== */
+const readingParseCount = computed(() => parseBatchReadingText(batchText.value).length)
+
+function parseBatchReadingText(text) {
+  const lines = String(text || '').split(/\r?\n/)
+  const items = []
+  const FIELDS = ['cat', 'meta', 'description', 'date', 'tags']
+  let current = null
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r/g, '')
+    const fieldMatch = line.match(/^#(\w+)\s*=\s*(.*)$/)
+    if (fieldMatch) {
+      const key = fieldMatch[1].toLowerCase()
+      const value = fieldMatch[2].trim()
+      if (key === 'title') {
+        if (current && current.title && current.content) items.push(current)
+        current = { title: value, content: '' }
+      } else if (current && FIELDS.includes(key)) {
+        current[key] = value
+      }
+      continue
+    }
+    if (!current) continue
+    current.content += (current.content ? '\n' : '') + rawLine
+  }
+  if (current && current.title && current.content) items.push(current)
+  return items
+}
+
+async function handleBatchReadingImport() {
+  if (batchImporting.value) return
+  const items = parseBatchReadingText(batchText.value)
+  if (!items.length) {
+    batchResult.value = { error: true, message: '请先粘贴或选择阅读文本' }
+    return
+  }
+  if (items.length > 100) {
+    batchResult.value = { error: true, message: `共 ${items.length} 篇，超出单次 100 篇上限，请分批导入` }
+    return
+  }
+  batchImporting.value = true
+  batchResult.value = null
+  try {
+    const resourcesObj = uniCloud.importObject('resources', { customUI: true })
+    const r = (await resourcesObj.batchCreateReading({ adminToken: getAdminToken(), items })) || {}
+    if (r.errCode !== 0) {
+      batchResult.value = { error: true, message: r.errMsg || '批量导入失败' }
+    } else {
+      batchResult.value = { error: false, message: `导入完成：新增 ${r.added} 篇，跳过重复 ${r.skipped} 篇` }
+      await loadAll()
+    }
+  } catch (e) {
+    batchResult.value = { error: true, message: (e && e.message) || '批量导入失败，请确认 resources 云对象已重新部署' }
+  } finally {
+    batchImporting.value = false
+  }
+}
+
 function chooseBatchFile() {
   uni.chooseFile({
     count: 1,
@@ -797,6 +891,51 @@ const resourceFilter = ref('all')
 const resources = ref([])
 const PAGE_SIZE = 50
 const currentPage = ref(1)
+const selectedIds = ref([])
+
+// 当前筛选结果是否全部选中
+const isAllSelected = computed(() => {
+  const list = filteredResources.value
+  return list.length > 0 && list.every(item => selectedIds.value.includes(item.id))
+})
+
+function toggleSelect(id) {
+  const i = selectedIds.value.indexOf(id)
+  if (i >= 0) selectedIds.value.splice(i, 1)
+  else selectedIds.value.push(id)
+}
+
+function toggleSelectAll() {
+  const all = filteredResources.value
+  const allSelected = all.length > 0 && all.every(item => selectedIds.value.includes(item.id))
+  selectedIds.value = allSelected ? [] : all.map(item => item.id)
+}
+
+async function batchDelete() {
+  if (!selectedIds.value.length) return
+  const ids = selectedIds.value.slice()
+  const typeLabel = resourceFilter.value === 'vocabulary' ? '词汇' : resourceFilter.value === 'video' ? '视频' : resourceFilter.value === 'reading' ? '阅读' : resourceFilter.value === 'listening' ? '听力' : ''
+  uni.showModal({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 条${typeLabel ? `（${typeLabel}）` : ''}资源吗？删除后不可恢复。`,
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        const resourcesObj = uniCloud.importObject('resources', { customUI: true })
+        const r = (await resourcesObj.remove({ adminToken: getAdminToken(), ids })) || {}
+        if (r.errCode === 0) {
+          uni.showToast({ title: `已删除 ${r.removed || ids.length} 条`, icon: 'success' })
+          selectedIds.value = []
+          await loadAll()
+        } else {
+          uni.showToast({ title: r.errMsg || '删除失败', icon: 'none' })
+        }
+      } catch (e) {
+        uni.showToast({ title: (e && e.errMsg) || '删除失败', icon: 'none' })
+      }
+    }
+  })
+}
 
 const filteredResources = computed(() => {
   const q = resourceSearch.value.trim().toLowerCase()
@@ -1801,6 +1940,58 @@ onMounted(() => {
 }
 .qb-toolbar-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .qb-search { position: relative; flex: 1 1 240px; min-width: 220px; }
+.qb-batch-del {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: #FEE2E2;
+  color: #B91C1C;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease;
+  flex-shrink: 0;
+}
+.qb-batch-del:hover { background: #FECACA; }
+.qb-batch-del .navi-icon {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+}
+.qb-check-col {
+  width: 36px;
+  text-align: center;
+}
+.qb-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #CBD5E1;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  margin: 0 auto;
+  box-sizing: border-box;
+  transition: border-color .15s ease, background .15s ease;
+}
+.qb-check:hover { border-color: #2563EB; }
+.qb-check.is-checked {
+  background: #2563EB;
+  border-color: #2563EB;
+}
+.qb-check.is-checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
 .qb-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--rule-muted-foreground); }
 .qb-search-input {
   width: 100%; height: 42px; padding: 0 16px 0 42px;
