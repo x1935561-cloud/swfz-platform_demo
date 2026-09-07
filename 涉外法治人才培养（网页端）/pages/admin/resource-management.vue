@@ -1,10 +1,10 @@
 <template>
   <view class="app-shell">
-    <!-- ===== Left Sidebar ===== -->
+    <!-- 左侧导航栏 -->
     <aside class="app-sidebar">
       <view class="app-sidebar-logo">
         <view class="app-sidebar-logo-icon">
-          <view class="ls-svg-glyph" aria-hidden="true"></view>
+          <image class="ls-svg-img" src="/static/logo.png" mode="aspectFit"></image>
         </view>
         <view class="app-sidebar-logo-text">
           <text>涉外法治人才培养平台</text>
@@ -51,7 +51,7 @@
       </view>
     </aside>
 
-    <!-- ===== Main Content Area ===== -->
+    <!-- 主内容区 -->
     <view class="app-main">
       <header class="app-topbar">
         <view class="app-topbar-titles">
@@ -62,7 +62,7 @@
       </header>
       <main class="app-content">
 
-        <!-- ===== Section 1: 资源概览统计 ===== -->
+        <!-- 资源概览统计 -->
         <section class="dc-section" :class="{ 'is-visible': visibleSections[0] }" aria-label="资源概览统计">
           <view class="qb-section-header">
             <view class="qb-section-title-wrap">
@@ -129,10 +129,21 @@
                 <text>type = listening</text>
               </view>
             </view>
+            <view class="qb-kpi-card qb-accent-warning">
+              <view class="qb-kpi-card-head">
+                <text class="qb-kpi-card-label">文书案例</text>
+                <view class="qb-kpi-card-icon"><view class="navi-icon navi-icon-file-text"></view></view>
+              </view>
+              <text class="qb-kpi-card-value">{{ kpiCase }}</text>
+              <view class="qb-kpi-card-foot">
+                <view class="navi-icon navi-icon-trending-up-sm"></view>
+                <text>type = case</text>
+              </view>
+            </view>
           </view>
         </section>
 
-        <!-- ===== Section 2: 资源上传 ===== -->
+        <!-- 资源上传 -->
         <section class="dc-section" :class="{ 'is-visible': visibleSections[1] }" aria-label="资源上传">
           <view class="qb-section-header">
             <view class="qb-section-title-wrap">
@@ -152,6 +163,7 @@
                   <view class="qb-pill" :class="{ 'is-active': uploadType === 'vocabulary' }" @tap="uploadType = 'vocabulary'">词汇</view>
                   <view class="qb-pill" :class="{ 'is-active': uploadType === 'reading' }" @tap="uploadType = 'reading'">文本阅读</view>
                   <view class="qb-pill" :class="{ 'is-active': uploadType === 'listening' }" @tap="uploadType = 'listening'">听力训练</view>
+                  <view class="qb-pill" :class="{ 'is-active': uploadType === 'case' }" @tap="uploadType = 'case'">文书案例</view>
                 </view>
               </view>
               <view class="rm-form-field rm-form-field-grow">
@@ -166,12 +178,12 @@
 
             <view class="rm-upload-row">
               <view class="rm-form-field rm-form-field-grow">
-                <text class="rm-form-label">{{ uploadType === 'video' ? '视频分类' : uploadType === 'vocabulary' ? '词汇主题' : uploadType === 'reading' ? '阅读主题' : '听力场景' }}</text>
-                <input class="rm-input" v-model="uploadCategory" :placeholder="uploadType === 'video' ? '如 国际仲裁 / WTO法 / 跨境投资 / 海商法' : '如 国际仲裁 / 跨境投资 / 海商法'" />
+                <text class="rm-form-label">{{ uploadType === 'video' ? '视频分类' : uploadType === 'vocabulary' ? '词汇主题' : uploadType === 'reading' ? '阅读主题' : uploadType === 'case' ? '案例分类' : '听力场景' }}</text>
+                <input class="rm-input" v-model="uploadCategory" :placeholder="uploadType === 'case' ? '如 仲裁协议效力 / 跨境并购 / 国际商事' : uploadType === 'video' ? '如 国际仲裁 / WTO法 / 跨境投资 / 海商法' : '如 国际仲裁 / 跨境投资 / 海商法'" />
               </view>
               <view class="rm-form-field">
-                <text class="rm-form-label">{{ uploadType === 'video' ? '时长' : '难度 / 音标' }}</text>
-                <input class="rm-input rm-input-sm" v-model="uploadMeta" :placeholder="uploadType === 'video' ? '如 45:30' : '如 中级 / /əˈbɪtrəl/' " />
+                <text class="rm-form-label">{{ uploadType === 'case' ? '案号 / 来源' : uploadType === 'video' ? '时长' : '难度 / 音标' }}</text>
+                <input class="rm-input rm-input-sm" v-model="uploadMeta" :placeholder="uploadType === 'case' ? '如 （2019）最高法民特1号 / 国际商事法庭' : uploadType === 'video' ? '如 45:30' : '如 中级 / /əˈbɪtrəl/'" />
               </view>
             </view>
 
@@ -227,10 +239,10 @@
               </view>
             </view>
 
-            <view v-if="uploadType === 'reading'" class="rm-upload-row">
+            <view v-if="uploadType === 'reading' || uploadType === 'case'" class="rm-upload-row">
               <view class="rm-form-field rm-form-field-grow">
-                <text class="rm-form-label">阅读正文</text>
-                <textarea class="rm-textarea" v-model="uploadContent" placeholder="请输入阅读正文"></textarea>
+                <text class="rm-form-label">{{ uploadType === 'case' ? '案例正文' : '阅读正文' }}</text>
+                <textarea class="rm-textarea rm-textarea-lg" maxlength="-1" v-model="uploadContent" :placeholder="uploadType === 'case' ? '请粘贴案例 / 裁判文书 / 裁决书全文' : '请输入阅读正文'"></textarea>
               </view>
               <view class="rm-form-field">
                 <text class="rm-form-label">PDF / 原文链接</text>
@@ -242,15 +254,6 @@
                   <text v-if="uploadPdfName" class="rm-file-name">{{ uploadPdfName }}</text>
                 </view>
                 <input class="rm-input" v-model="uploadUrl" placeholder="可留空" />
-                <text class="rm-form-label">封面图</text>
-                <view class="rm-file-row">
-                  <view class="rm-file-btn rm-file-btn-sm" @tap="chooseCoverFile">
-                    <view class="navi-icon navi-icon-upload-cloud"></view>
-                    <text>{{ uploadingCover ? '上传中...' : '选择封面图' }}</text>
-                  </view>
-                  <text v-if="uploadCoverName" class="rm-file-name">{{ uploadCoverName }}</text>
-                </view>
-                <input class="rm-input" v-model="uploadCover" placeholder="可留空" />
               </view>
             </view>
 
@@ -267,23 +270,12 @@
                 <text class="rm-form-label rm-form-label-soft">音频地址（选择文件后自动填入，也可手动填写）</text>
                 <input class="rm-input" v-model="uploadAudioUrl" placeholder="云存储音频 URL" />
               </view>
-              <view class="rm-form-field">
-                <text class="rm-form-label">封面图</text>
-                <view class="rm-file-row">
-                  <view class="rm-file-btn rm-file-btn-sm" @tap="chooseCoverFile">
-                    <view class="navi-icon navi-icon-upload-cloud"></view>
-                    <text>{{ uploadingCover ? '上传中...' : '选择封面图' }}</text>
-                  </view>
-                  <text v-if="uploadCoverName" class="rm-file-name">{{ uploadCoverName }}</text>
-                </view>
-                <input class="rm-input" v-model="uploadCover" placeholder="可留空" />
-              </view>
             </view>
 
             <view v-if="uploadType === 'reading' || uploadType === 'listening'" class="rm-upload-row">
               <view v-if="uploadType === 'reading'" class="rm-form-field rm-form-field-grow">
                 <text class="rm-form-label">阅读简介</text>
-                <textarea class="rm-textarea" v-model="uploadDescription" placeholder="请输入摘要或说明"></textarea>
+                <textarea class="rm-textarea" maxlength="-1" v-model="uploadDescription" placeholder="请输入摘要或说明"></textarea>
               </view>
             </view>
 
@@ -304,7 +296,7 @@
                   </view>
                   <text v-if="uploadListeningWordName" class="rm-file-name">{{ uploadListeningWordName }}</text>
                 </view>
-                <textarea class="rm-textarea" v-model="uploadContent" placeholder="请输入英文原文，可包含换行"></textarea>
+                <textarea class="rm-textarea" maxlength="-1" v-model="uploadContent" placeholder="请输入英文原文，可包含换行"></textarea>
               </view>
             </view>
 
@@ -325,7 +317,7 @@
                   </view>
                   <text v-if="uploadListeningZhWordName" class="rm-file-name">{{ uploadListeningZhWordName }}</text>
                 </view>
-                <textarea class="rm-textarea" v-model="uploadDescription" placeholder="请输入中文译文，可包含换行"></textarea>
+                <textarea class="rm-textarea" maxlength="-1" v-model="uploadDescription" placeholder="请输入中文译文，可包含换行"></textarea>
               </view>
             </view>
 
@@ -399,11 +391,13 @@
             <text v-if="batchResult" class="rm-batch-result" :class="{ 'is-error': batchResult.error }">{{ batchResult.message }}</text>
           </view>
 
-          <view v-if="uploadType === 'reading'" class="rm-upload-card rm-batch-card">
+          <view v-if="uploadType === 'reading' || uploadType === 'case'" class="rm-upload-card rm-batch-card">
             <view class="rm-batch-head">
               <view class="rm-batch-title-wrap">
-                <text class="rm-batch-title">批量导入阅读</text>
-                <text class="rm-batch-subtitle">粘贴文本或选择 txt 文件：每篇以 #title= 开头，支持 #cat= #meta= #description= #date= 字段，其余行作为正文；重复篇目自动跳过，导入后直接上线</text>
+                <text class="rm-batch-title">{{ uploadType === 'case' ? '批量导入文书案例' : '批量导入阅读' }}</text>
+                <text class="rm-batch-subtitle">{{ uploadType === 'case'
+                  ? '粘贴文本或选择 txt 文件：每篇以 #title= 开头，支持 #cat= #meta= #date= #fileUrl= #description= 字段，其余行作为裁判文书 / 案例正文；重复篇目自动跳过，导入后直接上线'
+                  : '粘贴文本或选择 txt 文件：每篇以 #title= 开头，支持 #cat= #meta= #description= #date= 字段，其余行作为正文；重复篇目自动跳过，导入后直接上线' }}</text>
               </view>
               <view class="rm-batch-actions">
                 <view class="rm-file-btn rm-file-btn-sm" @tap="chooseBatchFile">选择 txt 文件</view>
@@ -411,12 +405,13 @@
             </view>
             <textarea
               class="rm-textarea rm-batch-textarea"
+              maxlength="-1"
               v-model="batchText"
-              placeholder="每篇以 #title= 开头，例如：&#10;#title=司法和国家权力的多种面孔（序言）&#10;#cat=比较法&#10;#meta=米尔伊安·R·达玛什卡 著&#10;#description=全书导言&#10;正文内容..."
+              :placeholder="batchPlaceholder"
             ></textarea>
             <view class="rm-batch-foot">
-              <text v-if="readingParseCount > 0" class="rm-batch-count">已识别 {{ readingParseCount }} 篇阅读</text>
-              <text v-else class="rm-batch-count rm-batch-count-muted">尚未识别到阅读篇目</text>
+              <text v-if="readingParseCount > 0" class="rm-batch-count">已识别 {{ readingParseCount }} 篇{{ uploadType === 'case' ? '案例' : '阅读' }}</text>
+              <text v-else class="rm-batch-count rm-batch-count-muted">尚未识别到{{ uploadType === 'case' ? '案例' : '阅读' }}篇目</text>
               <view class="qb-create-btn qb-create-btn-success" :class="{ 'is-disabled': batchImporting }" @tap="handleBatchReadingImport">
                 <view class="navi-icon navi-icon-check-circle"></view>
                 <text>{{ batchImporting ? '导入中...' : '一键导入' }}</text>
@@ -426,7 +421,7 @@
           </view>
         </section>
 
-        <!-- ===== Section 3: 学习资源管理 ===== -->
+        <!-- 学习资源管理 -->
         <section id="learning-resource-management" class="dc-section" :class="{ 'is-visible': visibleSections[2] }" aria-label="学习资源管理">
           <view class="qb-section-header">
             <view class="qb-section-title-wrap">
@@ -541,7 +536,7 @@
           </view>
         </section>
 
-        <!-- ===== 编辑资源弹窗 ===== -->
+        <!-- 编辑资源弹窗 -->
         <view v-if="editVisible" class="rm-modal-mask" @tap.self="closeEdit">
           <view class="rm-modal">
             <view class="rm-modal-header">
@@ -573,7 +568,7 @@
                 </view>
               </view>
 
-              <view v-if="editType === 'video' || editType === 'reading'" class="rm-upload-row">
+              <view v-if="editType === 'video' || editType === 'reading' || editType === 'case'" class="rm-upload-row">
                 <view class="rm-form-field rm-form-field-grow">
                   <text class="rm-form-label">{{ editType === 'video' ? '视频地址' : 'PDF / 原文链接' }}</text>
                   <input class="rm-input" v-model="editForm.fileUrl" placeholder="填写云存储公开 URL" />
@@ -635,10 +630,10 @@
                 </view>
               </view>
 
-              <view v-if="editType === 'reading'" class="rm-upload-row">
+              <view v-if="editType === 'reading' || editType === 'case'" class="rm-upload-row">
                 <view class="rm-form-field rm-form-field-grow">
-                  <text class="rm-form-label">阅读正文</text>
-                  <textarea class="rm-textarea" v-model="editForm.content" placeholder="请输入阅读正文"></textarea>
+                  <text class="rm-form-label">{{ editType === 'case' ? '案例正文' : '阅读正文' }}</text>
+                  <textarea class="rm-textarea" maxlength="-1" v-model="editForm.content" :placeholder="editType === 'case' ? '请输入案例 / 裁判文书 / 裁决书全文' : '请输入阅读正文'"></textarea>
                 </view>
               </view>
 
@@ -659,7 +654,7 @@
                     </view>
                     <text v-if="editListeningWordName" class="rm-file-name">{{ editListeningWordName }}</text>
                   </view>
-                  <textarea class="rm-textarea" v-model="editForm.content" placeholder="请输入英文原文，可包含换行"></textarea>
+                  <textarea class="rm-textarea" maxlength="-1" v-model="editForm.content" placeholder="请输入英文原文，可包含换行"></textarea>
                 </view>
               </view>
 
@@ -680,7 +675,7 @@
                     </view>
                     <text v-if="editListeningZhWordName" class="rm-file-name">{{ editListeningZhWordName }}</text>
                   </view>
-                  <textarea class="rm-textarea" v-model="editForm.description" placeholder="请输入中文译文，可包含换行"></textarea>
+                  <textarea class="rm-textarea" maxlength="-1" v-model="editForm.description" placeholder="请输入中文译文，可包含换行"></textarea>
                 </view>
               </view>
 
@@ -716,8 +711,8 @@
                 <view class="rm-form-field">
                   <text class="rm-form-label">审核状态</text>
                   <view class="qb-pills">
-                    <view class="qb-pill" :class="{ 'is-active': editForm.status === '审核中' }" @tap="editForm.status = '审核中'; syncStatusClass()">审核中</view>
-                    <view class="qb-pill" :class="{ 'is-active': editForm.status === '已上线' }" @tap="editForm.status = '已上线'; syncStatusClass()">已上线</view>
+                    <view class="qb-pill" :class="{ 'is-active': editForm.status === '审核中', 'is-status-pending': editForm.status === '审核中' }" @tap="editForm.status = '审核中'; syncStatusClass()">审核中</view>
+                    <view class="qb-pill" :class="{ 'is-active': editForm.status === '已上线', 'is-status-on': editForm.status === '已上线' }" @tap="editForm.status = '已上线'; syncStatusClass()">已上线</view>
                   </view>
                 </view>
               </view>
@@ -750,7 +745,7 @@ const todayDateText = computed(() => {
   return `${y}年${m}月${d}日`
 })
 
-/* ===== 上传表单 ===== */
+/* 上传表单 */
 const uploadType = ref('video')
 const uploadTitle = ref('')
 const uploadMeta = ref('')
@@ -772,7 +767,7 @@ const editListeningZhTextName = ref('')
 const uploadListeningZhWordName = ref('')
 const editListeningZhWordName = ref('')
 
-/* ===== 文件上传状态 ===== */
+/* 文件上传状态 */
 const uploadVideoName = ref('')
 const uploadingVideo = ref(false)
 const uploadAudioName = ref('')
@@ -782,7 +777,7 @@ const uploadingPdf = ref(false)
 const uploadCoverName = ref('')
 const uploadingCover = ref(false)
 
-/* ===== 批量导入词汇 ===== */
+/* 批量导入词汇 */
 const batchText = ref('')
 const batchImporting = ref(false)
 const batchResult = ref(null)
@@ -817,13 +812,13 @@ function parseBatchVocabText(text) {
   return items
 }
 
-/* ===== 批量导入阅读 ===== */
+/* 批量导入阅读 */
 const readingParseCount = computed(() => parseBatchReadingText(batchText.value).length)
 
 function parseBatchReadingText(text) {
   const lines = String(text || '').split(/\r?\n/)
   const items = []
-  const FIELDS = ['cat', 'meta', 'description', 'date', 'tags']
+  const FIELDS = ['cat', 'meta', 'description', 'date', 'tags', 'fileurl']
   let current = null
   for (const rawLine of lines) {
     const line = rawLine.replace(/\r/g, '')
@@ -861,7 +856,8 @@ async function handleBatchReadingImport() {
   batchResult.value = null
   try {
     const resourcesObj = uniCloud.importObject('resources', { customUI: true })
-    const r = (await resourcesObj.batchCreateReading({ adminToken: getAdminToken(), items })) || {}
+    const batchMethod = uploadType.value === 'case' ? 'batchCreateCase' : 'batchCreateReading'
+    const r = (await resourcesObj[batchMethod]({ adminToken: getAdminToken(), items })) || {}
     if (r.errCode !== 0) {
       batchResult.value = { error: true, message: r.errMsg || '批量导入失败' }
     } else {
@@ -944,7 +940,7 @@ async function handleBatchImport() {
   }
 }
 
-/* ===== 编辑弹窗 ===== */
+/* 编辑弹窗 */
 const editVisible = ref(false)
 const editSaving = ref(false)
 const editType = ref('video')
@@ -970,7 +966,7 @@ const editForm = reactive({
   statusClass: 'qb-diff-mid'
 })
 
-/* ===== 学习资源 ===== */
+/* 学习资源 */
 const resourceSearch = ref('')
 const resourceFilter = ref('all')
 const resources = ref([])
@@ -999,7 +995,7 @@ function toggleSelectAll() {
 async function batchDelete() {
   if (!selectedIds.value.length) return
   const ids = selectedIds.value.slice()
-  const typeLabel = resourceFilter.value === 'vocabulary' ? '词汇' : resourceFilter.value === 'video' ? '视频' : resourceFilter.value === 'reading' ? '阅读' : resourceFilter.value === 'listening' ? '听力' : ''
+  const typeLabel = resourceFilter.value === 'vocabulary' ? '词汇' : resourceFilter.value === 'video' ? '视频' : resourceFilter.value === 'reading' ? '阅读' : resourceFilter.value === 'case' ? '案例' : resourceFilter.value === 'listening' ? '听力' : ''
   uni.showModal({
     title: '确认批量删除',
     content: `确定要删除选中的 ${ids.length} 条${typeLabel ? `（${typeLabel}）` : ''}资源吗？删除后不可恢复。`,
@@ -1078,14 +1074,22 @@ watch(totalPages, (total) => {
   if (currentPage.value > total) currentPage.value = total
 })
 
-/* ===== 资源概览 KPI ===== */
+/* 资源概览指标 */
 const kpiTotal = computed(() => resources.value.length)
 const kpiVideo = computed(() => resources.value.filter(item => item.type === 'video').length)
 const kpiVocabulary = computed(() => resources.value.filter(item => item.type === 'vocabulary').length)
 const kpiReading = computed(() => resources.value.filter(item => item.type === 'reading').length)
 const kpiListening = computed(() => resources.value.filter(item => item.type === 'listening').length)
+const kpiCase = computed(() => resources.value.filter(item => item.type === 'case').length)
 
-/* ===== 云端数据 ===== */
+const batchPlaceholder = computed(() => {
+  if (uploadType.value === 'case') {
+    return '每篇以 #title= 开头，例如：\n#title=【（2019）最高法民特1号】运裕公司等申请确认仲裁协议效力案\n#cat=仲裁协议效力\n#meta=（2019）最高法民特1号 / 国际商事法庭\n#date=2019-09-29\n#fileUrl=https://cicc.court.gov.cn/html/1/218/180/221/1340.html\n#description=当事人以合同未成立为由主张仲裁条款不存在，人民法院审查仲裁条款是否成立\n正文内容...'
+  }
+  return '每篇以 #title= 开头，例如：\n#title=司法和国家权力的多种面孔（序言）\n#cat=比较法\n#meta=米尔伊安·R·达玛什卡 著\n#description=全书导言\n正文内容...'
+})
+
+/* 云端数据 */
 function getAdminToken() {
   return uni.getStorageSync('adminToken')
 }
@@ -1097,7 +1101,8 @@ function resourceTypeLabel(type) {
     video: '视频',
     vocabulary: '词汇',
     reading: '文本阅读',
-    listening: '听力训练'
+    listening: '听力训练',
+    case: '文书案例'
   }
   return labels[type] || type || '未分类'
 }
@@ -1180,7 +1185,6 @@ function refreshUploadSortOrder() {
 
 watch(uploadType, refreshUploadSortOrder)
 
-/* ===== 方法 ===== */
 const navigateTo = (url) => {
   uni.navigateTo({ url })
 }
@@ -1228,7 +1232,7 @@ function addEditOption(questionIndex) {
 
 let payload = {}
 
-/* ===== 文件上传到云存储 ===== */
+/* 文件上传到云存储 */
 function safeFileName(name) {
   const extMatch = String(name || '').match(/\.[A-Za-z0-9]+$/)
   const ext = (extMatch && extMatch[0]) || ''
@@ -1439,11 +1443,11 @@ async function chooseEditListeningZhWordFile() {
   }
 }
 
-/* 根据文件大小 & 类型推算需要的超时时间，避免大文件被默认的 60s 超时掐断 */
+/* 根据文件大小和类型推算需要的超时时间，避免大文件被默认的 60 秒超时掐断 */
 function calcUploadTimeout(file, label) {
   const size = Number(file && file.size) || 0
   const name = String(file && file.name || '').toLowerCase()
-  // 粗略假定上传速率下限 0.5 MB/s（公司网/弱网），给 2.5 倍冗余；最少 2 分钟
+  // 粗略假定上传速率下限为 0.5 MB/s（公司网或弱网），留 2.5 倍冗余；最少 2 分钟
   const minRateBps = 0.5 * 1024 * 1024
   const bySizeMs = size > 0 ? Math.ceil((size / minRateBps) * 2.5 * 1000) : 0
 
@@ -1465,7 +1469,7 @@ function calcUploadTimeout(file, label) {
 /* 选择大文件时，提前给出警告提示，让管理员做好长时间等待的心理准备 */
 function warnIfLargeFile(file, label) {
   if (!file || typeof file.size !== 'number' || file.size <= 0) return true
-  // 视频/PDF > 200MB，音频 > 50MB，封面 > 10MB 视为大文件
+  // 视频或 PDF 超过 200MB、音频超过 50MB、封面超过 10MB 视为大文件
   const thresholds = {
     '视频': 200 * 1024 * 1024,
     '音频':  50 * 1024 * 1024,
@@ -1936,9 +1940,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ============================================
-   Brand CSS Variables
-   ============================================ */
+/* 品牌主题色变量 */
 .app-shell {
   --rule-primary: #2563EB;
   --rule-primary-hover: #1D4ED8;
@@ -1997,7 +1999,7 @@ onMounted(() => {
 
 :root { --qb-ease: cubic-bezier(.2,.8,.2,1); }
 
-/* ===== Sidebar ===== */
+/* 侧边导航栏 */
 .app-sidebar {
   position: fixed; left: 0; top: 0; height: 100vh; width: 240px;
   display: flex; flex-direction: column;
@@ -2010,16 +2012,13 @@ onMounted(() => {
   color: inherit;
 }
 .app-sidebar-logo-icon {
-  width: 36px; height: 36px; border-radius: 8px;
-  background: linear-gradient(135deg, var(--rule-primary), var(--rule-primary-active));
+  width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; overflow: hidden;
-  box-shadow: 0 4px 10px -2px color-mix(in srgb, var(--rule-primary) 40%, transparent);
+  flex-shrink: 0;
 }
-.ls-svg-glyph {
-  width: 20px; height: 20px; background: #fff;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z'/><path d='M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z'/><path d='M7 21h10'/><path d='M12 3v18'/><path d='M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2'/></svg>") center/contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z'/><path d='M2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z'/><path d='M7 21h10'/><path d='M12 3v18'/><path d='M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2'/></svg>") center/contain no-repeat;
+.ls-svg-img {
+  width: 32px;
+  height: 32px;
 }
 .app-sidebar-logo-text {
   display: flex; flex-direction: column; line-height: 1.4;
@@ -2120,7 +2119,7 @@ onMounted(() => {
           mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>") center/contain no-repeat;
 }
 
-/* ===== Sidebar User ===== */
+/* 侧边栏用户信息 */
 .app-sidebar-user { padding: 16px 12px; border-top: 1px solid var(--rule-border); }
 .app-sidebar-user-inner {
   display: flex; align-items: center; gap: 12px;
@@ -2138,7 +2137,7 @@ onMounted(() => {
 .app-sidebar-user-name { display: block; font-size: 13px; font-weight: 500; color: var(--rule-foreground); }
 .app-sidebar-user-role { display: block; font-size: 12px; color: var(--rule-muted-foreground); }
 
-/* ===== Main ===== */
+/* 主内容区 */
 .app-main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; min-width: 0; }
 .app-topbar {
   height: 64px; border-bottom: 1px solid var(--rule-border);
@@ -2152,7 +2151,7 @@ onMounted(() => {
 .app-topbar-meta { font-size: 13px; color: var(--rule-muted-foreground);font-variant-numeric:tabular-nums; }
 .app-content { flex: 1; padding: 28px 32px; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
 
-/* ===== Scroll Reveal ===== */
+/* 滚动显现动画 */
 .dc-section {
   margin-bottom: 28px; opacity: 0; transform: translateY(24px);
   transition: opacity 0.7s var(--qb-ease), transform 0.7s var(--qb-ease);
@@ -2160,7 +2159,7 @@ onMounted(() => {
 .dc-section:last-child { margin-bottom: 0; }
 .dc-section.is-visible { opacity: 1; transform: translateY(0); }
 
-/* ===== Section Header ===== */
+/* 区块标题栏 */
 .qb-section-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .qb-section-title-wrap { display: flex; align-items: center; gap: 14px; }
 .qb-section-bar {
@@ -2170,7 +2169,7 @@ onMounted(() => {
 .qb-section-title { font-size: 17px; font-weight: 700; color: var(--rule-foreground); letter-spacing: -0.01em; line-height: 1.3; }
 .qb-section-subtitle { font-size: 13px; color: var(--rule-muted-foreground); display: block; margin-top: 2px; }
 
-/* ===== KPI Cards ===== */
+/* 指标卡片 */
 .qb-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .qb-kpi-card {
   position: relative; overflow: hidden;
@@ -2217,7 +2216,6 @@ onMounted(() => {
 .qb-kpi-card-value { font-size: 32px; font-weight: 700; line-height: 1.1; color: var(--rule-foreground); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; position: relative; z-index: 1; }
 .qb-kpi-card-foot { font-size: 12px; color: var(--rule-muted-foreground); position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; }
 
-/* ===== Toolbar ===== */
 .qb-toolbar {
   background: linear-gradient(135deg, var(--rule-card), var(--rule-primary-tint-3));
   border: 1px solid color-mix(in srgb, var(--rule-border) 55%, transparent);
@@ -2327,7 +2325,7 @@ onMounted(() => {
   box-shadow: 0 12px 28px -4px color-mix(in srgb, var(--state-success) 58%, transparent);
 }
 
-/* ===== Table Card ===== */
+/* 表格卡片 */
 #learning-resource-management {
   scroll-margin-top: 80px;
 }
@@ -2359,7 +2357,7 @@ onMounted(() => {
 .qb-empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--rule-muted-foreground); }
 .qb-date { color: var(--rule-muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
 
-/* pagination */
+/* 分页 */
 .qb-pagination {
   display: flex;
   align-items: center;
@@ -2418,7 +2416,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* type tags */
+/* 类型标签 */
 .qb-type-tag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: var(--rule-radius-full); white-space: nowrap; }
 .qb-type-single { background: var(--rule-primary-tint-1); color: var(--rule-primary); }
 .qb-type-multi { background: var(--state-success-tint); color: var(--state-success); }
@@ -2431,13 +2429,12 @@ onMounted(() => {
 .qb-cat-teal { background: var(--state-teal-tint); color: var(--state-teal); }
 .qb-cat-pink { background: var(--state-pink-tint); color: var(--state-pink); }
 
-/* difficulty / status tags */
+/* 难度与状态标签 */
 .qb-diff-tag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: var(--rule-radius-full); white-space: nowrap; }
 .qb-diff-easy { background: var(--state-success-tint); color: var(--state-success); }
 .qb-diff-mid { background: var(--state-warning-tint); color: var(--state-warning); }
-.qb-diff-hard { background: var(--state-error-tint); color: var(--state-error); }
 
-/* action buttons */
+/* 操作按钮 */
 .qb-actions { display: inline-flex; gap: 8px; white-space: nowrap; }
 .qb-action-btn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -2452,7 +2449,7 @@ onMounted(() => {
 .qb-action-del { color: var(--state-error); }
 .qb-action-del:hover { background: var(--state-error-tint); }
 
-/* ===== Upload Card ===== */
+/* 上传卡片 */
 .rm-upload-card {
   background: linear-gradient(135deg, var(--rule-card), var(--rule-primary-tint-3));
   border: 1px solid color-mix(in srgb, var(--rule-border) 55%, transparent);
@@ -2517,7 +2514,7 @@ onMounted(() => {
 .rm-upload-tip { font-size: 12px; color: var(--rule-muted-foreground); }
 .rm-upload-actions { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* ===== 文件上传 ===== */
+/* 文件上传 */
 .rm-file-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rm-file-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -2537,7 +2534,7 @@ onMounted(() => {
 }
 .rm-form-label-soft { font-size: 12px; color: var(--rule-muted-foreground); font-weight: 500; }
 
-/* ===== 批量导入词汇 ===== */
+/* 批量导入词汇 */
 .rm-batch-card {
   margin-top: 16px;
   border: 1px dashed color-mix(in srgb, var(--rule-primary) 45%, transparent);
@@ -2579,7 +2576,7 @@ onMounted(() => {
 }
 .qb-create-btn.is-disabled { opacity: .6; pointer-events: none; }
 
-/* ===== Edit Modal ===== */
+/* 编辑弹窗 */
 .rm-modal-mask {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(15, 23, 42, .46);
@@ -2626,6 +2623,7 @@ onMounted(() => {
 }
 .rm-textarea::placeholder { color: var(--rule-muted-foreground); }
 .rm-textarea:focus { border-color: var(--rule-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rule-primary) 18%, transparent); }
+.rm-textarea-lg { min-height: 260px; }
 .rm-modal-options { display: flex; }
 .rm-modal-foot {
   display: flex; align-items: center; justify-content: flex-end; gap: 12px;
@@ -2650,13 +2648,11 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ===== Responsive ===== */
 @media (max-width: 1024px) {
   .qb-kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   .app-sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
-  .app-sidebar.open { transform: translateX(0); }
   .app-main { margin-left: 0; }
   .app-content { padding: 20px; }
   .qb-toolbar-row { flex-direction: column; align-items: stretch; }
